@@ -1,0 +1,43 @@
+import React from 'react';
+import {NavigationContainer} from '@react-navigation/native';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import Login from './src/screens/Login';
+import Events from './src/screens/Events';
+import ListTickets from './src/screens/ListTickets';
+import ScanBarcode from './src/screens/ScanBarcode';
+import AuthLoadingScreen from './src/screens/AuthLoadingScreen';
+import GetStart from './src/screens/GetStart';
+import History from './src/screens/History';
+import TicketView from './src/screens/TicketView';
+import PdfViewer from './src/screens/PdfViewer';
+
+const Stack = createNativeStackNavigator();
+
+function App() {
+  return (
+    // <>
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="AuthLoadingScreen">
+        <Stack.Screen
+          name="AuthLoadingScreen"
+          component={AuthLoadingScreen}
+          options={{headerShown: false}}
+        />
+        <Stack.Screen
+          name="Login"
+          component={Login}
+          options={{headerShown: false}}
+        />
+        <Stack.Screen name="GetStart" component={GetStart} options={{headerShown: false}}/>
+        <Stack.Screen name="Events" component={Events} options={{headerShown: false}}/>
+        <Stack.Screen name="ListTickets" component={ListTickets} options={{headerShown: false}}/>
+        <Stack.Screen name="PdfViewer" component={PdfViewer} />
+        <Stack.Screen name="ScanBarcode" component={ScanBarcode} options={{headerShown: false}} />
+        <Stack.Screen name="History" component={History} options={{headerShown: false}} />
+        <Stack.Screen name='TicketView' component={TicketView} options={{headerShown:false}}/>
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
+export default App;

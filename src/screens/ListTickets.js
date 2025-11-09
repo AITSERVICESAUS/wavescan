@@ -1,0 +1,530 @@
+import React, { Component } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  StatusBar,
+  SafeAreaView,
+  TouchableOpacity,
+Modal, Pressable,
+  ScrollView,
+  Dimensions,
+} from 'react-native';
+import GradientBackground from '../components/GradientBackground';
+import GradientButton from '../components/GradientButton';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons'; // <-- MaterialCommunityIcons import
+import Tickets_by_events from '../api/Tickets_by_events';
+import EventDetails from '../api/EventDetails';
+import getToken from '../api/getToken';
+import RNHTMLtoPDF from 'react-native-html-to-pdf';
+import { RFValue } from 'react-native-responsive-fontsize';
+import CustomAlert from '../components/CustomAlert';
+
+
+const { width, height } = Dimensions.get('window');
+
+class ListTickets extends Component {
+  constructor(props) {
+    super(props);
+    const { eid } = props.route.params;
+    this.state = {
+      eid: parseInt(eid), // Set eid directly from route params
+      totalTickets: 0,
+      soldTickets: 0,
+      usedTickets: 0,
+      remainingTickets: 0,
+      tickets: [],
+      eventFrom: '',
+      eventTo: '',
+      showCustomAlert: false,
+      alertTitle: '',
+      alertMessage: '',
+      alertType: '',
+      showPDFOptions: false,
+      pdfFilePath: '',
+    };
+  }
+
+  componentDidMount() {
+    this.initializeData();
+  }
+
+  async initializeData() {
+    try {
+      const token = await getToken();
+      const [eventData, eventInfo] = await Promise.all([
+        Tickets_by_events(token, this.state.eid),
+        EventDetails(token[0], this.state.eid), // <-- pass only base URL
+      ]);
+      if (eventData) {
+        this.setState({
+          totalTickets: eventData.total_tickets || 0,
+          usedTickets: eventData.tickets_checked || 0,
+          remainingTickets: eventData.tickets_available || 0,
+          soldTickets:
+            (eventData.tickets_checked || 0) +
+            (eventData.tickets_available || 0),
+          tickets: eventData.tickets || [],
+          eventFrom: eventInfo.from || '',
+          eventTo: eventInfo.to || '',
+          // now safely accessing parsed time
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch ticket/event data:', error);
+    }
+  }
+  showCustomAlert = (title, message, type) => {
+    this.setState({
+      showCustomAlert: true,
+      alertTitle: title,
+      alertMessage: message,
+      alertType: type,
+    });
+  };
+
+  hideCustomAlert = () => {
+    this.setState({ showCustomAlert: false }
+    );
+  };
+
+  handleBack = () => {
+    this.props.navigation.goBack();
+  };
+  generatePdf = async () => {
+    const { title } = this.props.route.params;
+    const { soldTickets, usedTickets, remainingTickets, tickets, eventTime } = this.state;
+
+    const ticketRows = tickets
+      .map((ticket, index) => {
+        const isChecked = ticket.ticket_status === 'checked';
+        const rowStyle = isChecked
+          ? 'background-color: #d4edda; color: #155724;'
+          : 'background-color: #f8d7da; color: #721c24;';
+
+        return `
+        <tr style="${rowStyle}">
+          <td style="border: 1px solid #999; padding: 6px;">${index + 1}</td>
+          <td style="border: 1px solid #999; padding: 6px;">${ticket.customer_name}</td>
+          <td style="border: 1px solid #999; padding: 6px;">${ticket.email}</td>
+          <td style="border: 1px solid #999; padding: 6px;">${ticket.qr_code}</td>
+          <td style="border: 1px solid #999; padding: 6px; font-weight: bold;">
+            ${ticket.ticket_status || 'Not Checked'}
+          </td>
+        </tr>`;
+      })
+      .join('');
+
+    const htmlContent = `
+    <div style="font-family: Arial, sans-serif; padding: 20px;">
+      <h1 style="text-align:center; color:#333;">${title}</h1>
+      <p style="text-align:center; color:#333;">${eventTime}
+      <table style="width:100%; font-size:16px; margin-bottom:20px;">
+        <tr><td><strong>Sold Tickets:</strong></td><td>${soldTickets}</td></tr>
+        <tr><td><strong>Used Tickets:</strong></td><td>${usedTickets}</td></tr>
+        <tr><td><strong>Remaining Tickets:</strong></td><td>${remainingTickets}</td></tr>
+      </table>
+
+      <h2 style="text-align:center; margin-bottom:10px;">Ticket Details</h2>
+      <table style="width:100%; border-collapse: collapse; font-size:14px; margin-bottom:30px;">
+        <tr style="background-color: #343a40; color: #fff;">
+          <th style="border: 1px solid #999; padding: 6px;">#</th>
+          <th style="border: 1px solid #999; padding: 6px;">Name</th>
+          <th style="border: 1px solid #999; padding: 6px;">Email</th>
+          <th style="border: 1px solid #999; padding: 6px;">QR Code</th>
+          <th style="border: 1px solid #999; padding: 6px;">Status</th>
+        </tr>
+        ${ticketRows}
+      </table>
+
+      <footer style="text-align: center; font-size: 12px; color: #888; border-top: 1px solid #ccc; padding-top: 10px;">
+        Generated by <strong>TicketWave</strong> &mdash; Simplifying Event Entry
+      </footer>
+    </div>
+  `;
+
+    try {
+      const options = {
+        html: htmlContent,
+        fileName: `TicketStats_${Date.now()}`,
+        directory: 'Documents',
+      };
+
+      const file = await RNHTMLtoPDF.convert(options);
+
+      // set state (for your popup etc.) but also RETURN the path
+      this.setState({
+        pdfFilePath: file.filePath,
+        showPDFOptions: true,
+      });
+
+      return file.filePath;   // <-- important
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      this.showCustomAlert('Error', 'Failed to generate PDF.', 'error');
+      return null;
+    }
+  };
+  // inside class ListTickets
+  ensurePdfReady = async () => {
+    if (this.state.pdfFilePath) return this.state.pdfFilePath;
+    await this.generatePdf();                 // will set state.pdfFilePath
+    return this.state.pdfFilePath;
+  };
+
+
+
+  downloadPdf = async () => {
+    const path = await this.ensurePdfReady();
+    if (!path) return this.showCustomAlert('Error', 'No PDF path.', 'error');
+
+    this.setState({ showPDFOptions: false });
+    this.showCustomAlert('Success', `PDF saved to:\n${path}`, 'success');
+  };
+
+
+
+
+  render() {
+    const { title } = this.props.route.params;
+
+    return (
+      <>
+        <StatusBar
+          translucent
+          backgroundColor="transparent"
+          barStyle="light-content"
+        />
+        <GradientBackground>
+          <SafeAreaView style={styles.safe}>
+            <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+              <View style={styles.header}>
+                <TouchableOpacity onPress={this.handleBack}>
+                  <View style={styles.backContent}>
+                    <Image
+                      source={require('../assets/back.png')}
+                      style={styles.backIcon}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.backText}>Events</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.title}>{title}</Text>
+              {/* <View style={styles.spacer} /> */}
+
+              {/* Event details section */}
+              <View style={styles.detailsBox}>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Sold Tickets</Text>
+                  <Text style={styles.detailValue}>
+                    {this.state.soldTickets}
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Used Tickets</Text>
+                  <Text style={styles.detailValue}>
+                    {this.state.usedTickets}
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Remaining Tickets</Text>
+                  <Text style={styles.detailValue}>
+                    {this.state.remainingTickets}
+                  </Text>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}></Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>From</Text>
+                  <View style={styles.dateRow}>
+                    <Text style={styles.detailValue}>
+                      {this.state.eventFrom}
+                    </Text>
+                    <MaterialCommunityIcons
+                      name="calendar-month"
+                      size={20}
+                      color="#FF71D2"
+                      style={styles.iconMargin}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>To</Text>
+                  <View style={styles.dateRow}>
+                    <Text style={styles.detailValue}>{this.state.eventTo}</Text>
+                    <MaterialCommunityIcons
+                      name="calendar-month"
+                      size={20}
+                      color="#FF71D2"
+                      style={styles.iconMargin}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.pdfbutton}>
+                  <GradientButton
+                    text={
+                      <View style={styles.pdfContent}>
+                        <MaterialCommunityIcons
+                          name="file-pdf-box"
+                          size={26}
+                          color="#fff"
+                          style={styles.iconMargin}
+                        />
+                        <Text style={styles.pdfText}>Generate PDF</Text>
+                      </View>
+                    }
+                    onPress={this.generatePdf}
+                  />
+                </View>
+              </View>
+              <GradientButton text={
+                <View style={styles.scanContent}>
+                  <Image
+                    source={require('../assets/oHistory.png')}
+                    style={styles.historyIcon}
+                  />
+                  <Text style={styles.scanText}>History</Text>
+                </View>
+              }
+                style={styles.historyBtn}
+                onPress={() =>
+                  this.props.navigation.navigate('History', {
+                    eid: this.state.eid,
+                  })
+                }
+              />
+
+              {/* Scan Button */}
+              <GradientButton
+                text={
+                  <View style={styles.scanContent}>
+                    <Image
+                      source={require('../assets/scannericon.png')}
+                      style={styles.scanIcon}
+                    />
+                    <Text style={styles.scanText}>Scan</Text>
+                  </View>
+                }
+                onPress={() =>
+                  this.props.navigation.navigate('ScanBarcode', {
+                    eid: this.state.eid,
+                  })
+                }
+                style={styles.scanBtn}
+                textStyle={styles.btnTextWrap}
+              />
+            </ScrollView>
+          </SafeAreaView>
+          <CustomAlert
+            visible={this.state.showCustomAlert}
+            title={this.state.alertTitle}
+            message={this.state.alertMessage}
+            onClose={this.hideCustomAlert}
+            onConfirm={this.hideCustomAlert}
+            showCancel={false}
+            confirmText="OK"
+          />
+          {this.state.showPDFOptions && (
+            <Modal
+  visible={this.state.showPDFOptions}
+  transparent
+  animationType="fade"
+  onRequestClose={() => this.setState({ showPDFOptions: false })}
+>
+  <View style={styles.modalBackdrop}>
+    {/* tap outside to close (optional) */}
+    <Pressable
+      onPress={() => this.setState({ showPDFOptions: false })}
+      style={StyleSheet.absoluteFillObject}
+    />
+    <View style={styles.popupBox}>
+      <GradientButton
+        text={<Text style={styles.popupButtonText}>View PDF</Text>}
+        onPress={async () => {
+          const path = await this.ensurePdfReady();
+          if (!path) return this.showCustomAlert('Error', 'No PDF path.', 'error');
+          this.setState({ showPDFOptions: false });
+          this.props.navigation.navigate('PdfViewer', { filePath: path });
+        }}
+        style={styles.popupButton}
+      />
+      <GradientButton
+        text={<Text style={styles.popupButtonText}>Download PDF</Text>}
+        onPress={this.downloadPdf}
+        style={styles.popupButton}
+      />
+    </View>
+  </View>
+</Modal>
+
+          )}
+
+
+        </GradientBackground>
+      </>
+    );
+  }
+}
+
+const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    paddingHorizontal: width * 0.04,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: height * -0.05,
+    justifyContent: 'space-between',
+  },
+  title: {
+    fontSize: RFValue(18),
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'left',
+    // marginTop: 10,
+    paddingHorizontal: width * 0.02,
+  },
+  backContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backText: {
+    fontSize: RFValue(18),
+    color: '#FF71D2',
+    marginLeft: height * -0.03,
+    fontWeight: '500',
+  },
+  spacer: {
+    marginVertical: height * 0.01,
+  },
+  detailsBox: {
+    backgroundColor: '#333333D1',
+    borderRadius: 10,
+    padding: width * 0.05,
+    marginVertical: height * 0.02,
+    marginBottom: height * 0.05,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: height * 0.005,
+  },
+  detailLabel: {
+    fontSize: RFValue(13),
+    color: '#fff',
+    fontWeight: '400',
+  },
+  detailValue: {
+    fontSize: RFValue(12),
+    color: '#fff',
+    fontWeight: '700',
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconMargin: {
+    marginLeft: height * 0.008,
+  },
+  pdfContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pdfText: {
+    color: '#fff',
+    fontSize: RFValue(15),
+    fontWeight: '600',
+    marginLeft: height * 0.008,
+  },
+  pdfbutton: {
+    marginTop: height * 0.025,
+    marginBottom: height * 0.015,
+  },
+  scanBtn: {
+    paddingVertical: width * 0.012,
+    borderRadius: 10,
+    alignSelf: 'center',
+    width: '80%',
+    minHeight: 60, // optional: reduce from 70 if it's too tall
+    marginBottom: height * 0.1,
+    marginTop: height * 0.03,
+  },
+  historyBtn: {
+    paddingVertical: width * 0.012,
+    borderRadius: 10,
+    alignSelf: 'center',
+    width: '80%',
+    minHeight: 60,
+    // marginBottom: 20,
+  },
+  scanContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scanIcon: {
+    width: 40,
+    height: 40,
+    marginRight: height * 0.02,
+    tintColor: '#fff',
+  },
+  historyIcon: {
+    width: 40,
+    height: 40,
+    marginRight: height * 0.01,
+  },
+  scanText: {
+    fontSize: RFValue(15),
+    fontWeight: '600',
+    color: '#fff',
+  },
+  btnTextWrap: {
+    paddingHorizontal: 0,
+  },
+  modalBackdrop: {
+  flex: 1,
+  backgroundColor: 'rgba(0,0,0,0.55)', // <- the fade
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+popupBox: {
+  width: '92%',
+  padding: 20,
+  borderRadius: 10,
+  // backgroundColor: '#111',
+  alignItems: 'stretch',
+  // (Android) shadow/elevation if you want:
+  elevation: 8,
+},
+
+popupButton: {
+  alignSelf: 'stretch',
+  width: '100%',
+  minHeight: 56,
+  marginVertical: 12,
+},
+
+popupButtonText: {
+  color: '#fff',
+  fontSize: RFValue(15),
+  fontWeight: '600',
+  textAlign: 'center',
+  paddingVertical: 14,
+},
+
+
+
+});
+
+export default ListTickets;
