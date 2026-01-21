@@ -13,149 +13,169 @@ import {RFValue} from 'react-native-responsive-fontsize';
 
 const {width, height} = Dimensions.get('window');
 
+const COLORS = {
+  active: '#7C3AED',        // purple
+  inactive: '#8A8F9C',      // gray
+  barBg: 'rgba(12, 18, 34, 0.92)',
+  barBorder: 'rgba(255,255,255,0.10)',
+  bubbleIdle: '#1B2238',
+  white: '#FFFFFF',
+};
+
 const BottomNavBar = () => {
   const navigation = useNavigation();
   const route = useRoute();
+
   const currentRoute = route.name;
-  const isActive = screen => currentRoute === screen;
+
+  const isHistory = currentRoute === 'History';
+  const isEvents = currentRoute === 'Events';
+  const isScan = currentRoute === 'ScanBarcode';
+
+  const tintFor = isActive => (isActive ? COLORS.active : COLORS.inactive);
 
   const handleHistoryPress = async () => {
     try {
       const eid = await AsyncStorage.getItem('@selectedEid');
       if (eid) {
-        navigation.navigate('History', {eid: parseInt(eid)});
+        navigation.navigate('History', {eid: parseInt(eid, 10)});
       } else {
         alert('Please select an event first.');
       }
-    } catch (e) {
-      alert('Failed to load event. Please try again.');
+    } catch {
+      alert('Failed to load event.');
+    }
+  };
+
+  const handleScanPress = async () => {
+    const eid = await AsyncStorage.getItem('@selectedEid');
+    if (eid) {
+      navigation.navigate('ScanBarcode', {eid: parseInt(eid, 10)});
+    } else {
+      alert('Please select an event first.');
     }
   };
 
   return (
-    <View style={styles.bottomNavbarContainer}>
-      {/* History */}
-      <View style={styles.bottomNavHistory}>
+    <View style={styles.wrapper}>
+      <View style={styles.bottomNavbarContainer}>
+
+        {/* History (original icon restored) */}
         <TouchableOpacity
           onPress={handleHistoryPress}
-          style={{alignItems: 'center'}}>
-          <Image source={require('../assets/history.png')}
+          style={styles.tabBtn}
+          activeOpacity={0.85}>
+          <Image
+            source={require('../assets/history.png')} // ✅ original icon
             style={[
-              styles.historyButton,
-              {tintColor: isActive('History') ? '#FF71D2' : 'white'},
+              styles.icon,
+              {tintColor: tintFor(isHistory)},
             ]}
             resizeMode="contain"
           />
-          <Text style={[
-              styles.navText,
-              {color: isActive('History') ? '#FF71D2' : 'white'},
-            ]}>
+          <Text style={[styles.navText, {color: tintFor(isHistory)}]}>
             History
           </Text>
         </TouchableOpacity>
-      </View>
 
-      {/* Scan icon */}
-      {/* <DropShadow style={styles.shadowProp}> */}
-      <View style={styles.bottomNavbarScanner}>
-        <TouchableOpacity
-          style={{alignItems: 'center'}}
-          onPress={async () => {
-            const eid = await AsyncStorage.getItem('@selectedEid');
-            if (eid) {
-              navigation.push('ScanBarcode', {eid: parseInt(eid)});
-            } else {
-              alert('Please select an event first.');
-            }
-          }}>
-          <Image
-            source={require('../assets/scanNav.png')}
-            style={styles.scanButton}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-      </View>
-      {/* </DropShadow> */}
+        {/* Scan bubble */}
+        <View style={styles.scanSlot}>
+          <TouchableOpacity
+            onPress={handleScanPress}
+            activeOpacity={0.9}
+            style={[
+              styles.scanBubble,
+              {backgroundColor: isScan ? COLORS.active : COLORS.bubbleIdle},
+            ]}>
+            <Image
+              source={require('../assets/scannericon.png')}
+              style={styles.scanIcon}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+        </View>
 
-      {/* Events */}
-      <View style={styles.bottomNavbarEvents}>
+        {/* Events */}
         <TouchableOpacity
-        onPress={() => navigation.navigate('Events')}
-        style={{alignItems: 'center'}}>
+          onPress={() => navigation.navigate('Events')}
+          style={styles.tabBtn}
+          activeOpacity={0.85}>
           <Image
             source={require('../assets/event.png')}
             style={[
-              styles.eventButton,
-              {tintColor: isActive('Events') ? '#FF71D2' : 'white'},
+              styles.icon,
+              {tintColor: tintFor(isEvents)},
             ]}
+            resizeMode="contain"
           />
-          <Text
-            style={[
-              styles.navText,
-              {color: isActive('Events') ? '#FF71D2' : 'white'},
-            ]}>
+          <Text style={[styles.navText, {color: tintFor(isEvents)}]}>
             Events
           </Text>
         </TouchableOpacity>
+
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  wrapper: {
+    position: 'absolute',
+    left: 18,
+    right: 18,
+    bottom: 18,
+  },
+
   bottomNavbarContainer: {
     flexDirection: 'row',
-    height: 60,
-    paddingHorizontal: width * 0.05,
-    backgroundColor: '#2c2c2c',
-    borderRadius: 10,
+    height: 68,
+    paddingHorizontal: width * 0.07,
+    backgroundColor: COLORS.barBg,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'space-between',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    borderWidth: 1,
+    borderColor: COLORS.barBorder,
   },
-  bottomNavHistory: {
+
+  tabBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: width * 0.02,
+    width: 72,
   },
-  bottomNavbarScanner: {
-    marginTop: height * -0.05,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FD23EE',
-    borderRadius: 50,
-    padding: width * 0.03,
+
+  icon: {
+    width: RFValue(22),
+    height: RFValue(22),
+    marginBottom: 6,
   },
-  bottomNavbarEvents: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: width * 0.01,
-  },
-  historyButton: {
-    width: 30,
-    height: 30,
-  },
-  scanButton: {
-    width: 40,
-    height: 40,
-  },
-  eventButton: {
-    width: 25,
-    height: 25,
-  },
+
   navText: {
-    color: 'white',
     fontSize: RFValue(10),
-    marginTop: height * 0.005,
-    textAlign: 'center',
-    justifyContent: 'center',
+    fontWeight: '600',
   },
-  scanButtonContainer: {
+
+  scanSlot: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: 90,
+  },
+
+  scanBubble: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -28,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+
+  scanIcon: {
+    width: RFValue(28),
+    height: RFValue(28),
+    tintColor: '#FFFFFF',
   },
 });
 

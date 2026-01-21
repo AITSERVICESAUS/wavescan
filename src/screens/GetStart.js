@@ -55,7 +55,6 @@ const styles = StyleSheet.create({
     width: width * 0.5,
     height: height * 0.06,
     marginTop: 20,
-    alignSelf: 'center',  
   },
 });
 

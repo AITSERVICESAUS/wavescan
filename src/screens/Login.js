@@ -19,16 +19,21 @@ import {RFValue} from 'react-native-responsive-fontsize';
 
 const {width, height} = Dimensions.get('window');
 
-// Hardcoded Site URL for Australia
-const HARDCODED_SITE_URL = 'https://ticketwave.com.au/';
-const HARDCODED_SITE_VALUE = 'AU';
+const UI = {
+  pad: width * 0.06,
+  text: '#FFFFFF',
+  muted: 'rgba(255,255,255,0.65)',
+  card: 'rgba(255,255,255,0.06)',
+  border: 'rgba(255,255,255,0.10)',
+  inputBg: 'rgba(255,255,255,0.08)',
+  primary: '#7C3AED',
+};
 
 class Login extends Component {
   constructor(props) {
     super(props);
-
     this.state = {
-      url: HARDCODED_SITE_URL, // URL is now hardcoded
+      url: 'https://ticketwave.com.au/',
       user: '',
       pass: '',
       secureText: true,
@@ -54,9 +59,11 @@ class Login extends Component {
 
   _validate() {
     const {url, user, pass} = this.state;
-    // URL checks will pass since it's hardcoded and valid
     if (!url.trim()) {
-      this.showAlert('Validation Error', 'Select a valid Site.');
+      this.showAlert(
+        'Validation Error',
+        'Enter a valid Site URL (e.g. https://yourdomain.com/).',
+      );
       return false;
     }
     if (!url.endsWith('/')) {
@@ -78,7 +85,7 @@ class Login extends Component {
     if (!this._validate()) return;
 
     const {navigate} = this.props.navigation;
-    const {url, user, pass} = this.state; // url will be the hardcoded AU url
+    const {url, user, pass} = this.state;
 
     try {
       const resjson = await LoginApi(url, user, pass);
@@ -111,8 +118,7 @@ class Login extends Component {
     if (token) {
       await AsyncStorage.setItem('@token', token);
       await AsyncStorage.setItem('@isLoggedIn', '1');
-      await AsyncStorage.setItem('@url', this.state.url); // Saves the AU url
-      await AsyncStorage.setItem('@site', HARDCODED_SITE_VALUE); // Saves 'AU'
+      await AsyncStorage.setItem('@url', this.state.url);
       return true;
     }
     return false;
@@ -130,14 +136,11 @@ class Login extends Component {
             enableOnAndroid={true}
             keyboardShouldPersistTaps="handled"
             extraScrollHeight={100}
-            showsVerticalScrollIndicator={false}
-          >
+            showsVerticalScrollIndicator={false}>
             <Image source={require('../assets/logo.png')} style={styles.logo} />
 
             <View style={styles.formContainer}>
               <Text style={styles.title}>Login</Text>
-
-              {/* Site selector and modal have been removed */}
 
               <Text style={styles.subTopic}>Email</Text>
               <TextInput
@@ -146,7 +149,7 @@ class Login extends Component {
                 onChangeText={text => this.setState({user: text})}
                 value={user}
                 autoCapitalize="none"
-                placeholderTextColor="#ccc"
+                placeholderTextColor={UI.muted}
               />
 
               <Text style={styles.subTopic}>Password</Text>
@@ -157,14 +160,14 @@ class Login extends Component {
                   onChangeText={text => this.setState({pass: text})}
                   value={pass}
                   secureTextEntry={this.state.secureText}
-                  placeholderTextColor="#ccc"
+                  placeholderTextColor={UI.muted}
                 />
                 <Ionicons
                   name={this.state.secureText ? 'eye-off' : 'eye'}
-                  size={24}
-                  color="#666"
+                  size={22}
+                  color={UI.muted}
                   onPress={() =>
-                    this.setState(prevState => ({ secureText: !prevState.secureText }))
+                    this.setState(prev => ({secureText: !prev.secureText}))
                   }
                   style={styles.eyeIcon}
                 />
@@ -191,67 +194,75 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: width * 0.05,
+    paddingHorizontal: UI.pad,
+    paddingBottom: height * 0.04,
   },
+
   logo: {
-    width: 200,
-    height: 200,
+    width: 170,
+    height: 170,
     alignSelf: 'center',
     marginBottom: height * 0.03,
     resizeMode: 'contain',
+    opacity: 0.95,
   },
+
   formContainer: {
-    backgroundColor: '#1e1e1e',
-    borderRadius: 16,
-    padding: width * 0.06,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 10},
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 10,
+    backgroundColor: UI.card,
+    borderWidth: 1,
+    borderColor: UI.border,
+    borderRadius: 18,
+    padding: 16,
   },
+
   title: {
-    fontSize: RFValue(20),
-    color: '#fff',
-    marginBottom: height * 0.03,
-    fontWeight: 'bold',
-    textAlign: 'left',
-  },
-  subTopic: {
-    fontSize: RFValue(15),
-    color: '#ccc',
-    marginBottom: height * 0.015,
+    fontSize: RFValue(18),
+    color: UI.text,
+    marginBottom: 14,
+    fontWeight: '800',
     textAlign: 'left',
   },
 
-  // Removed all dropdown/menu styles
+  subTopic: {
+    fontSize: RFValue(12),
+    color: UI.muted,
+    marginBottom: 8,
+    textAlign: 'left',
+    fontWeight: '600',
+  },
 
   input: {
     height: 50,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    marginBottom: height * 0.015,
-    paddingHorizontal: width * 0.015,
-    fontSize: RFValue(14),
-    color: '#000',
+    borderRadius: 12,
+    backgroundColor: UI.inputBg,
+    borderWidth: 1,
+    borderColor: UI.border,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    fontSize: RFValue(13),
+    color: UI.text,
   },
 
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginBottom: height * 0.015,
-    paddingHorizontal: width * 0.02,
+    borderRadius: 12,
+    backgroundColor: UI.inputBg,
+    borderWidth: 1,
+    borderColor: UI.border,
+    marginBottom: 14,
+    paddingHorizontal: 14,
+    height: 50,
   },
+
   passwordInput: {
     flex: 1,
-    height: 50,
-    fontSize: RFValue(14),
-    color: '#000',
+    fontSize: RFValue(13),
+    color: UI.text,
   },
+
   eyeIcon: {
-    paddingHorizontal: width * 0.02,
+    paddingLeft: 10,
   },
 });
 

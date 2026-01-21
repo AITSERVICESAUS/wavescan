@@ -9,14 +9,17 @@ import {
   Dimensions,
   TouchableOpacity,
   Image,
-  SafeAreaView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Camera, CameraType } from 'react-native-camera-kit';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { RFValue } from 'react-native-responsive-fontsize';
+
 import BottomNavBar from '../components/BottomNavBar';
 import CustomAlert from '../components/CustomAlert';
+import { theme } from '../theme/theme';
 
-const {width, height} = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 class ScanBarcode extends Component {
   constructor(props) {
@@ -34,21 +37,20 @@ class ScanBarcode extends Component {
       eid: '',
       cameraPermissionGranted: false,
 
-      // Custom alert states
       showCustomAlert: false,
       alertTitle: '',
       alertMessage: '',
-      alertType: '', // success / fail
+      alertType: '',
+      ticket_type: '',
     };
   }
 
   async componentDidMount() {
-    console.log('🚀 Component mounted');
     await this.loadSettings();
 
     const eidFromParams = this.props.route?.params?.eid;
     if (eidFromParams) {
-      await AsyncStorage.setItem('@selectedEid', eidFromParams.toString());
+      await AsyncStorage.setItem('@selectedEid', String(eidFromParams));
       this.setState({ eid: eidFromParams });
     }
 
@@ -58,27 +60,33 @@ class ScanBarcode extends Component {
   async loadSettings() {
     const token = await AsyncStorage.getItem('@token');
     const url = await AsyncStorage.getItem('@url');
-    const eid = JSON.stringify(this.props.route.params.eid);
+    const eid = JSON.stringify(this.props.route?.params?.eid);
     this.setState({ token, url, eid });
   }
 
   async checkCameraPermission() {
     if (Platform.OS === 'android') {
       const cameraGranted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.CAMERA,
+        PermissionsAndroid.PERMISSIONS.CAMERA
       );
-      const isCameraGranted =
-        cameraGranted === PermissionsAndroid.RESULTS.GRANTED;
-      console.log('📷 Camera permission granted:', isCameraGranted);
-      this.setState({ cameraPermissionGranted: isCameraGranted });
+      this.setState({
+        cameraPermissionGranted:
+          cameraGranted === PermissionsAndroid.RESULTS.GRANTED,
+      });
     } else {
-      console.log('📷 iOS assumed camera permission granted');
       this.setState({ cameraPermissionGranted: true });
     }
   }
 
-  handleBack = () => {
-    this.props.navigation.goBack();
+  handleBack = async () => {
+    let eid = this.props.route?.params?.eid;
+    if (!eid) {
+      eid = await AsyncStorage.getItem('@selectedEid');
+    }
+    // Navigate specifically to ListTickets with the required param
+    this.props.navigation.navigate('ListTickets', {
+      eid: eid ? parseInt(eid, 10) : null
+    });
   };
 
   resetScan = () => {
@@ -90,6 +98,7 @@ class ScanBarcode extends Component {
       checkin_time: '',
       e_cal: '',
       scanning: false,
+      ticket_type: '',
     });
   };
 
@@ -103,24 +112,16 @@ class ScanBarcode extends Component {
   };
 
   hideCustomAlert = () => {
-    this.setState({ showCustomAlert: false }, () => {
-      this.resetScan();
-    });
+    this.setState({ showCustomAlert: false }, this.resetScan);
   };
 
   onBarCodeRead = async event => {
     const scannedCode = event.nativeEvent?.codeStringValue;
-    console.log('📸 QR scanned:', scannedCode);
-
     const { scanning, token_storate, token, url, eid } = this.state;
 
-    if (scanning || scannedCode === token_storate) {
-      console.log('⏹ Skipping duplicate or ongoing scan');
-      return;
-    }
+    if (scanning || scannedCode === token_storate) return;
 
     this.setState({ scanning: true });
-    console.log('🔄 Sending request to:', `${url}wp-json/meup/v1/validate_ticket/`);
 
     try {
       const response = await fetch(`${url}wp-json/meup/v1/validate_ticket/`, {
@@ -137,7 +138,6 @@ class ScanBarcode extends Component {
       });
 
       const resjson = await response.json();
-      console.log('✅ Response received:', resjson);
 
       if (resjson.status === 'SUCCESS') {
         this.showCustomAlert(
@@ -145,8 +145,7 @@ class ScanBarcode extends Component {
           `Name: ${resjson.name_customer}\nTicket Type: ${resjson.ticket_type}`,
           'success'
         );
-      }
-      else {
+      } else {
         this.showCustomAlert('FAIL', resjson.msg, 'fail');
       }
 
@@ -160,7 +159,6 @@ class ScanBarcode extends Component {
         ticket_type: resjson.ticket_type,
       });
     } catch (error) {
-      console.log('❌ Scan request failed:', error);
       this.showCustomAlert('Error', 'Scan failed. Please try again.', 'fail');
     }
   };
@@ -169,51 +167,73 @@ class ScanBarcode extends Component {
     if (!this.state.cameraPermissionGranted) {
       return (
         <View style={styles.container}>
-          <Text style={styles.camPermission}>
-            Camera permission not granted.
-          </Text>
+          <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+
+          <SafeAreaView style={styles.permissionWrap}>
+            <View style={styles.headerRow}>
+              <TouchableOpacity
+                onPress={this.handleBack}
+                style={styles.backBtn}
+                activeOpacity={0.85}
+              >
+                <Image
+                  source={require('../assets/back.png')}
+                  style={styles.backIcon}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+
+              <Text style={styles.headerTitle}>Scan</Text>
+
+              <View style={{ width: 40 }} />
+            </View>
+
+            <Text style={styles.camPermission}>Camera permission not granted.</Text>
+          </SafeAreaView>
+
+          <BottomNavBar />
         </View>
       );
     }
 
     return (
       <View style={styles.container}>
-        <StatusBar
-          translucent
-          backgroundColor="transparent"
-          barStyle="light-content"
-        />
-        <SafeAreaView style={styles.safe}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={this.handleBack} style={styles.backBtn}>
-              <View style={styles.backContent}>
-                <Image
-                  source={require('../assets/back.png')}
-                  style={styles.backIcon}
-                  resizeMode="contain"
-                />
-                <Text style={styles.backText}>Back</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
+        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
 
-        {/* Camera View */}
+        {/* Fullscreen camera */}
         <Camera
           cameraType={CameraType.Back}
           scanBarcode={true}
           onReadCode={this.onBarCodeRead}
           showFrame={true}
-          laserColor="red"
-          frameColor="green"
+          laserColor={theme.colors.primary}
+          frameColor={theme.colors.primary}
           style={styles.preview}
         />
-        {/* Bottom Nav */}
-        <View style={styles.bottomBarWrapper}>
-          <BottomNavBar eid={this.state.eid} />
-        </View>
 
-        {/* Custom Alert */}
+        {/* Header overlay — spacing matches History */}
+        <SafeAreaView style={styles.headerSafe} pointerEvents="box-none">
+          <View style={styles.headerRow} pointerEvents="box-none">
+            <TouchableOpacity
+              onPress={this.handleBack}
+              style={styles.backBtn}
+              activeOpacity={0.85}
+            >
+              <Image
+                source={require('../assets/back.png')}
+                style={styles.backIcon}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+
+            <Text style={styles.headerTitle}>Scan</Text>
+
+            <View style={{ width: 40 }} />
+          </View>
+        </SafeAreaView>
+
+        <BottomNavBar />
+
         <CustomAlert
           visible={this.state.showCustomAlert}
           title={this.state.alertTitle}
@@ -231,45 +251,71 @@ class ScanBarcode extends Component {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: -10,
-    backgroundColor: 'transparent', // <- Add this line
-    zIndex: 10, // Bring it above the camera
-    position: 'absolute', // Optional, to overlay on top
-    top: StatusBar.currentHeight || 0,
-    left: 0,
-    right: 0,
-    padding: 10,
+    // Your theme has bgTop/bgBottom; scan uses camera behind so keep it dark
+    backgroundColor: theme.colors.bgTop,
   },
 
-  backContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backText: {
-    fontSize: 25,
-    color: '#FF71D2',
-    marginLeft: -30,
-    fontWeight: '500',
-  },
-  bottomBarWrapper: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    bottom: 40,
-  },
   preview: {
     flex: 1,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
   },
+
+  headerSafe: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+  },
+
+  // ✅ MATCH HISTORY HEADER POSITIONING
+  headerRow: {
+    // same as History:
+    marginTop: theme.spacing.headerTop,
+    marginBottom: theme.spacing.headerBottom,
+
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+
+    // ✅ History gets this from GradientBackground.
+    // Scan does not, so we add it using the CORRECT theme key:
+    paddingHorizontal: theme.spacing.screenPadding,
+  },
+
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadow.card,
+  },
+
+  backIcon: {
+     width: 80,
+         height: 80
+  },
+
+  // ✅ Match History title styling
+  headerTitle: {
+    color: theme.colors.text,
+    fontSize: RFValue(16),
+    fontWeight: '900',
+  },
+
+  permissionWrap: {
+    flex: 1,
+  },
+
   camPermission: {
     textAlign: 'center',
     marginTop: height * 0.2,
-    color: 'black',
+    color: theme.colors.text,
+    paddingHorizontal: theme.spacing.screenPadding,
+    fontWeight: '700',
   },
 });
 
