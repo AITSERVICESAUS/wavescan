@@ -7,6 +7,7 @@ import {
   StatusBar,
   ActivityIndicator,
   TouchableOpacity,
+  Image, // ✅ added
 } from 'react-native';
 
 import getToken from '../api/getToken';
@@ -44,6 +45,12 @@ class Events extends Component {
         this.setState({ loading: false });
       });
   }
+
+  // ✅ NEW: go to settings
+  goToSettings = () => {
+    // Must exist in your navigator as a screen name
+    this.props.navigation.navigate('SecuritySettings');
+  };
 
   confirmLogout = () => {
     this.setState({ showLogoutAlert: true });
@@ -96,16 +103,24 @@ class Events extends Component {
   render() {
     return (
       <>
-        {/* ✅ Status bar consistent with other pages */}
         <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
 
         <GradientBackground>
-          {/* GradientBackground already applies horizontal padding */}
           <SafeAreaView style={styles.safe}>
-            {/* ✅ Header: centered title, button aligned right */}
+            {/* ✅ Header row */}
             <View style={styles.headerRow}>
-              {/* Left spacer matches Logout button width to keep title centered */}
-              <View style={styles.headerSideSpacer} />
+              {/* ✅ Settings button (same footprint as Logout to keep title centered) */}
+              <TouchableOpacity
+                onPress={this.goToSettings}
+                style={styles.settingsBtn}
+                activeOpacity={0.85}
+              >
+                <Image
+                  source={require('../assets/settings.png')}
+                  style={styles.settingsIcon}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
 
               <Text style={styles.headerTitle}>Events</Text>
 
@@ -118,14 +133,13 @@ class Events extends Component {
               </TouchableOpacity>
             </View>
 
-            {/* ✅ Intro / Guidance Card (fills empty space nicely) */}
+            {/* ✅ Intro / Guidance Card */}
             <View style={styles.introCard}>
               <Text style={styles.introTitle}>Ready to Scan Tickets?</Text>
               <Text style={styles.introSubtitle}>
                 Select an event to begin scanning and managing check-ins.
               </Text>
 
-              {/* Optional subtle hint row (you can remove if you want) */}
               <View style={styles.introHintRow}>
                 <View style={styles.introDot} />
                 <Text style={styles.introHintText}>
@@ -163,8 +177,6 @@ class Events extends Component {
               cancelText="Cancel"
             />
           </SafeAreaView>
-
-          {/* ✅ BottomNavBar REMOVED from Events screen */}
         </GradientBackground>
       </>
     );
@@ -190,6 +202,25 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
+  // ✅ NEW: Settings button
+  settingsBtn: {
+    width: 72, // keeps title centered (matches logout footprint)
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadow.card,
+  },
+
+  settingsIcon: {
+    width: 20,
+    height: 20,
+    tintColor: theme.colors.text, // makes PNG fit your theme (remove if your PNG is already white)
+  },
+
   logoutBtn: {
     height: 40,
     paddingHorizontal: 12,
@@ -208,13 +239,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  // ✅ This keeps title perfectly centered by matching the Logout button “footprint”
-  headerSideSpacer: {
-    width: 72, // tuned to visually match logout button width (padding + text)
-    height: 40,
-  },
-
-  // ✅ Intro card
   introCard: {
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
@@ -260,7 +284,7 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    paddingBottom: 30, // ✅ no BottomNavBar now
+    paddingBottom: 30,
   },
 
   card: {

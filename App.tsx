@@ -10,7 +10,8 @@ import GetStart from './src/screens/GetStart';
 import History from './src/screens/History';
 import TicketView from './src/screens/TicketView';
 import PdfViewer from './src/screens/PdfViewer';
-
+import ResetPassword from './src/screens/ResetPassword';
+import SecuritySettingsScreen from './src/screens/SecuritySettingsScreen';
 const Stack = createNativeStackNavigator();
 
 function App() {
@@ -35,6 +36,9 @@ function App() {
         <Stack.Screen name="ScanBarcode" component={ScanBarcode} options={{headerShown: false}} />
         <Stack.Screen name="History" component={History} options={{headerShown: false}} />
         <Stack.Screen name='TicketView' component={TicketView} options={{headerShown:false}}/>
+        <Stack.Screen name="ResetPassword" component={ResetPassword} />
+        <Stack.Screen name="SecuritySettings" component={SecuritySettingsScreen} options={{ headerShown: false }}
+/>
       </Stack.Navigator>
     </NavigationContainer>
   );
