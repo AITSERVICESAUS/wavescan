@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, {Component} from 'react';
 import {
   StyleSheet,
   View,
@@ -11,15 +11,17 @@ import {
   Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Camera, CameraType } from 'react-native-camera-kit';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { RFValue } from 'react-native-responsive-fontsize';
+import {Camera, CameraType} from 'react-native-camera-kit';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {RFValue} from 'react-native-responsive-fontsize';
 
 import BottomNavBar from '../components/BottomNavBar';
 import CustomAlert from '../components/CustomAlert';
-import { theme } from '../theme/theme';
+import FoodFairResult from '../components/FoodFairResult';
+import {theme} from '../theme/theme';
+import redeemFoodFairTicket from '../api/FoodFairRedeemApi';
 
-const { height } = Dimensions.get('window');
+const {height} = Dimensions.get('window');
 
 class ScanBarcode extends Component {
   constructor(props) {
@@ -42,6 +44,9 @@ class ScanBarcode extends Component {
       alertMessage: '',
       alertType: '',
       ticket_type: '',
+      processing: false,
+      foodFairResult: null,
+      foodFairError: '',
     };
   }
 
@@ -51,7 +56,7 @@ class ScanBarcode extends Component {
     const eidFromParams = this.props.route?.params?.eid;
     if (eidFromParams) {
       await AsyncStorage.setItem('@selectedEid', String(eidFromParams));
-      this.setState({ eid: eidFromParams });
+      this.setState({eid: eidFromParams});
     }
 
     this.checkCameraPermission();
@@ -61,20 +66,20 @@ class ScanBarcode extends Component {
     const token = await AsyncStorage.getItem('@token');
     const url = await AsyncStorage.getItem('@url');
     const eid = JSON.stringify(this.props.route?.params?.eid);
-    this.setState({ token, url, eid });
+    this.setState({token, url, eid});
   }
 
   async checkCameraPermission() {
     if (Platform.OS === 'android') {
       const cameraGranted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.CAMERA
+        PermissionsAndroid.PERMISSIONS.CAMERA,
       );
       this.setState({
         cameraPermissionGranted:
           cameraGranted === PermissionsAndroid.RESULTS.GRANTED,
       });
     } else {
-      this.setState({ cameraPermissionGranted: true });
+      this.setState({cameraPermissionGranted: true});
     }
   }
 
@@ -85,7 +90,7 @@ class ScanBarcode extends Component {
     }
     // Navigate specifically to ListTickets with the required param
     this.props.navigation.navigate('ListTickets', {
-      eid: eid ? parseInt(eid, 10) : null
+      eid: eid ? parseInt(eid, 10) : null,
     });
   };
 
@@ -99,6 +104,9 @@ class ScanBarcode extends Component {
       e_cal: '',
       scanning: false,
       ticket_type: '',
+      processing: false,
+      foodFairResult: null,
+      foodFairError: '',
     });
   };
 
@@ -112,70 +120,159 @@ class ScanBarcode extends Component {
   };
 
   hideCustomAlert = () => {
-    this.setState({ showCustomAlert: false }, this.resetScan);
+    this.setState({showCustomAlert: false}, this.resetScan);
+  };
+
+  isHandledFoodFairStatus = status => {
+    return [
+      'redeemed_now',
+      'already_redeemed',
+      'donation_only',
+      'busy',
+    ].includes(String(status || '').toLowerCase());
+  };
+
+  isFallbackFoodFairStatus = status => {
+    return ['invalid', 'invalid_event', 'not_found'].includes(
+      String(status || '').toLowerCase(),
+    );
+  };
+
+  validateNormalTicket = async scannedCode => {
+    const {token, url, eid} = this.state;
+
+    const response = await fetch(`${url}wp-json/meup/v1/validate_ticket/`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        token,
+        qrcode: scannedCode,
+        eid,
+      }),
+    });
+
+    return response.json();
+  };
+
+  validateFoodFairTicket = async scannedCode => {
+    const {url, token} = this.state;
+    return redeemFoodFairTicket(url, scannedCode, token);
   };
 
   onBarCodeRead = async event => {
     const scannedCode = event.nativeEvent?.codeStringValue;
-    const { scanning, token_storate, token, url, eid } = this.state;
+    const {scanning, token_storate} = this.state;
 
-    if (scanning || scannedCode === token_storate) return;
+    if (!scannedCode || scanning || scannedCode === token_storate) {
+      return;
+    }
 
-    this.setState({ scanning: true });
+    this.setState({
+      scanning: true,
+      processing: true,
+      token_storate: scannedCode,
+      foodFairResult: null,
+      foodFairError: '',
+    });
 
     try {
-      const response = await fetch(`${url}wp-json/meup/v1/validate_ticket/`, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          token,
-          qrcode: scannedCode,
-          eid,
-        }),
+      const foodFairResponse = await this.validateFoodFairTicket(scannedCode);
+      const foodFairStatus = String(
+        foodFairResponse?.status || '',
+      ).toLowerCase();
+
+      if (this.isHandledFoodFairStatus(foodFairStatus)) {
+        this.setState({
+          processing: false,
+          foodFairResult: foodFairResponse,
+        });
+        return;
+      }
+
+      if (!this.isFallbackFoodFairStatus(foodFairStatus)) {
+        this.setState({
+          processing: false,
+          foodFairResult: foodFairResponse,
+        });
+        return;
+      }
+    } catch (error) {
+      this.setState({
+        processing: false,
+        foodFairError: 'Connection error. Ticket status could not be verified.',
       });
 
-      const resjson = await response.json();
+      this.showCustomAlert(
+        'Connection Error',
+        'Ticket status could not be verified. Do not issue rice packs yet.',
+        'fail',
+      );
+      return;
+    }
+
+    try {
+      const resjson = await this.validateNormalTicket(scannedCode);
 
       if (resjson.status === 'SUCCESS') {
         this.showCustomAlert(
           'SUCCESS',
           `Name: ${resjson.name_customer}\nTicket Type: ${resjson.ticket_type}`,
-          'success'
+          'success',
         );
       } else {
         this.showCustomAlert('FAIL', resjson.msg, 'fail');
       }
 
       this.setState({
+        processing: false,
         valid_ticket: resjson.status,
         name_customer: resjson.name_customer,
         seat: resjson.seat,
         checkin_time: resjson.checkin_time,
         e_cal: resjson.e_cal,
-        token_storate: scannedCode,
         ticket_type: resjson.ticket_type,
       });
     } catch (error) {
+      this.setState({processing: false});
       this.showCustomAlert('Error', 'Scan failed. Please try again.', 'fail');
     }
+  };
+
+  handleScanNext = () => {
+    this.setState({
+      token_storate: '',
+      valid_ticket: '',
+      name_customer: '',
+      seat: '',
+      checkin_time: '',
+      e_cal: '',
+      scanning: false,
+      processing: false,
+      ticket_type: '',
+      foodFairResult: null,
+      foodFairError: '',
+    });
   };
 
   render() {
     if (!this.state.cameraPermissionGranted) {
       return (
         <View style={styles.container}>
-          <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+          <StatusBar
+            translucent
+            backgroundColor="transparent"
+            barStyle="light-content"
+          />
 
           <SafeAreaView style={styles.permissionWrap}>
             <View style={styles.headerRow}>
               <TouchableOpacity
                 onPress={this.handleBack}
                 style={styles.backBtn}
-                activeOpacity={0.85}
-              >
+                activeOpacity={0.85}>
                 <Image
                   source={require('../assets/back.png')}
                   style={styles.backIcon}
@@ -185,10 +282,12 @@ class ScanBarcode extends Component {
 
               <Text style={styles.headerTitle}>Scan</Text>
 
-              <View style={{ width: 40 }} />
+              <View style={{width: 40}} />
             </View>
 
-            <Text style={styles.camPermission}>Camera permission not granted.</Text>
+            <Text style={styles.camPermission}>
+              Camera permission not granted.
+            </Text>
           </SafeAreaView>
 
           <BottomNavBar />
@@ -198,7 +297,11 @@ class ScanBarcode extends Component {
 
     return (
       <View style={styles.container}>
-        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+        <StatusBar
+          translucent
+          backgroundColor="transparent"
+          barStyle="light-content"
+        />
 
         {/* Fullscreen camera */}
         <Camera
@@ -217,8 +320,7 @@ class ScanBarcode extends Component {
             <TouchableOpacity
               onPress={this.handleBack}
               style={styles.backBtn}
-              activeOpacity={0.85}
-            >
+              activeOpacity={0.85}>
               <Image
                 source={require('../assets/back.png')}
                 style={styles.backIcon}
@@ -228,11 +330,22 @@ class ScanBarcode extends Component {
 
             <Text style={styles.headerTitle}>Scan</Text>
 
-            <View style={{ width: 40 }} />
+            <View style={{width: 40}} />
           </View>
         </SafeAreaView>
 
         <BottomNavBar />
+
+        {this.state.processing && (
+          <View style={styles.processingOverlay}>
+            <Text style={styles.processingText}>Checking ticket...</Text>
+          </View>
+        )}
+
+        <FoodFairResult
+          result={this.state.foodFairResult}
+          onScanNext={this.handleScanNext}
+        />
 
         <CustomAlert
           visible={this.state.showCustomAlert}
@@ -295,8 +408,8 @@ const styles = StyleSheet.create({
   },
 
   backIcon: {
-     width: 80,
-         height: 80
+    width: 80,
+    height: 80,
   },
 
   // ✅ Match History title styling
@@ -316,6 +429,24 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     paddingHorizontal: theme.spacing.screenPadding,
     fontWeight: '700',
+  },
+
+  processingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 80,
+  },
+
+  processingText: {
+    color: '#fff',
+    fontSize: RFValue(16),
+    fontWeight: '800',
   },
 });
 
