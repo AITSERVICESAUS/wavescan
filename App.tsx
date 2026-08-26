@@ -29,16 +29,43 @@ function App() {
           component={Login}
           options={{headerShown: false}}
         />
-        <Stack.Screen name="GetStart" component={GetStart} options={{headerShown: false}}/>
-        <Stack.Screen name="Events" component={Events} options={{headerShown: false}}/>
-        <Stack.Screen name="ListTickets" component={ListTickets} options={{headerShown: false}}/>
+        <Stack.Screen
+          name="GetStart"
+          component={GetStart}
+          options={{headerShown: false}}
+        />
+        <Stack.Screen
+          name="Events"
+          component={Events}
+          options={{headerShown: false}}
+        />
+        <Stack.Screen
+          name="ListTickets"
+          component={ListTickets}
+          options={{headerShown: false}}
+        />
         <Stack.Screen name="PdfViewer" component={PdfViewer} />
-        <Stack.Screen name="ScanBarcode" component={ScanBarcode} options={{headerShown: false}} />
-        <Stack.Screen name="History" component={History} options={{headerShown: false}} />
-        <Stack.Screen name='TicketView' component={TicketView} options={{headerShown:false}}/>
+        <Stack.Screen
+          name="ScanBarcode"
+          component={ScanBarcode}
+          options={{headerShown: false}}
+        />
+        <Stack.Screen
+          name="History"
+          component={History}
+          options={{headerShown: false}}
+        />
+        <Stack.Screen
+          name="TicketView"
+          component={TicketView}
+          options={{headerShown: false}}
+        />
         <Stack.Screen name="ResetPassword" component={ResetPassword} />
-        <Stack.Screen name="SecuritySettings" component={SecuritySettingsScreen} options={{ headerShown: false }}
-/>
+        <Stack.Screen
+          name="SecuritySettings"
+          component={SecuritySettingsScreen}
+          options={{headerShown: false}}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
