@@ -38,7 +38,7 @@ class Events extends Component {
         this.setState({
           data: data?.status === 'SUCCESS' ? data.events : [],
           loading: false,
-        })
+        }),
       )
       .catch(err => {
         console.log(err);
