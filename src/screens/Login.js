@@ -139,7 +139,7 @@ class Login extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      url: 'https://ticketwave.com.au/',
+      url: 'https://staging2.ticketwave.com.au/',
       user: '',
       pass: '',
       secureText: true,

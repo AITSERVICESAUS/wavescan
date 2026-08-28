@@ -5,13 +5,13 @@ import {theme} from '../theme/theme';
 
 const statusMeta = {
   redeemed_now: {
-    title: 'PACKS DISTRIBUTED',
-    subtitle: 'Rice packs have been issued for this order.',
+    title: 'VALID FOOD ORDER',
+    subtitle: 'Give these rice packs now.',
     color: '#16A34A',
   },
   already_redeemed: {
-    title: 'ALREADY REDEEMED',
-    subtitle: 'DO NOT ISSUE RICE PACKS.',
+    title: 'ALREADY COLLECTED',
+    subtitle: 'Do not give rice packs again.',
     color: '#DC2626',
   },
   donation_only: {
@@ -23,6 +23,21 @@ const statusMeta = {
     title: 'PROCESSING',
     subtitle: 'Ticket currently being processed. Please scan again.',
     color: '#F59E0B',
+  },
+  invalid: {
+    title: 'INVALID FOOD FAIR QR',
+    subtitle: 'This QR is not valid for Food Fair collection.',
+    color: '#DC2626',
+  },
+  invalid_event: {
+    title: 'INVALID FOOD FAIR QR',
+    subtitle: 'This QR is not valid for this Food Fair event.',
+    color: '#DC2626',
+  },
+  not_found: {
+    title: 'INVALID FOOD FAIR QR',
+    subtitle: 'No Food Fair order was found for this QR.',
+    color: '#DC2626',
   },
 };
 
@@ -40,6 +55,17 @@ const groupPacks = packs => {
   return Object.entries(groups);
 };
 
+const countFoodTypes = packs => {
+  const counts = {};
+
+  (packs || []).forEach(pack => {
+    const label = pack.food_label || pack.food_type || 'Food pack';
+    counts[label] = (counts[label] || 0) + 1;
+  });
+
+  return Object.entries(counts);
+};
+
 const FoodFairResult = ({result, onScanNext}) => {
   if (!result) return null;
 
@@ -51,6 +77,9 @@ const FoodFairResult = ({result, onScanNext}) => {
   };
 
   const packGroups = groupPacks(result.packs);
+  const foodCounts = countFoodTypes(result.packs);
+  const showPackDetails = packGroups.length > 0;
+  const isAlreadyRedeemed = status === 'already_redeemed';
 
   return (
     <View style={styles.overlay}>
@@ -61,29 +90,45 @@ const FoodFairResult = ({result, onScanNext}) => {
           <Text style={[styles.title, {color: meta.color}]}>{meta.title}</Text>
           <Text style={styles.subtitle}>{meta.subtitle}</Text>
 
+          {foodCounts.length > 0 && (
+            <View style={styles.giveNowBox}>
+              <Text style={styles.giveNowTitle}>
+                {isAlreadyRedeemed ? 'Original food order' : 'Give Now'}
+              </Text>
+              {foodCounts.map(([food, count]) => (
+                <Text key={food} style={styles.foodCount}>
+                  {count} {food}
+                </Text>
+              ))}
+              <Text style={styles.totalText}>
+                Total: {result.total_packs ?? (result.packs || []).length} rice packs
+              </Text>
+            </View>
+          )}
+
+          {showPackDetails && (
+            <View style={styles.detailsBox}>
+              {packGroups.map(([ticketType, foods]) => (
+                <View key={ticketType} style={styles.packGroup}>
+                  <Text style={styles.packTitle}>{ticketType}</Text>
+                  {foods.map((food, index) => (
+                    <Text
+                      key={`${ticketType}-${food}-${index}`}
+                      style={styles.packItem}>
+                      - {food}
+                    </Text>
+                  ))}
+                </View>
+              ))}
+            </View>
+          )}
+
           {!!result.order_id && (
             <Text style={styles.order}>Order #{result.order_id}</Text>
           )}
 
-          {packGroups.map(([ticketType, foods]) => (
-            <View key={ticketType} style={styles.packGroup}>
-              <Text style={styles.packTitle}>{ticketType}</Text>
-              {foods.map((food, index) => (
-                <Text key={`${ticketType}-${food}-${index}`} style={styles.packItem}>
-                  - {food}
-                </Text>
-              ))}
-            </View>
-          ))}
-
-          <View style={styles.summary}>
-            <Text style={styles.summaryText}>Total Packs: {result.total_packs ?? 0}</Text>
-            <Text style={styles.summaryText}>Distributed: {result.distributed ?? 0}</Text>
-            <Text style={styles.summaryText}>Remaining: {result.remaining ?? 0}</Text>
-          </View>
-
-          {!!result.redeemed_at && (
-            <Text style={styles.redeemedAt}>Redeemed At: {result.redeemed_at}</Text>
+          {isAlreadyRedeemed && !!result.redeemed_at && (
+            <Text style={styles.redeemedAt}>Collected At: {result.redeemed_at}</Text>
           )}
 
           <TouchableOpacity style={styles.button} onPress={onScanNext}>
@@ -141,15 +186,56 @@ const styles = StyleSheet.create({
   },
 
   order: {
-    marginTop: 18,
+    marginTop: 16,
     color: theme.colors.text,
     fontSize: RFValue(15),
     fontWeight: '900',
     textAlign: 'center',
   },
 
-  packGroup: {
+  giveNowBox: {
+    marginTop: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+
+  giveNowTitle: {
+    color: theme.colors.textMuted,
+    fontSize: RFValue(12),
+    fontWeight: '900',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+
+  foodCount: {
+    color: theme.colors.text,
+    fontSize: RFValue(20),
+    fontWeight: '900',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+
+  totalText: {
+    marginTop: 12,
+    color: theme.colors.text,
+    fontSize: RFValue(14),
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+
+  detailsBox: {
     marginTop: 16,
+    paddingTop: 2,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+
+  packGroup: {
+    marginTop: 14,
   },
 
   packTitle: {
@@ -163,20 +249,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: RFValue(13),
     fontWeight: '700',
-  },
-
-  summary: {
-    marginTop: 18,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-
-  summaryText: {
-    color: theme.colors.text,
-    fontSize: RFValue(13),
-    fontWeight: '800',
-    marginTop: 4,
   },
 
   redeemedAt: {

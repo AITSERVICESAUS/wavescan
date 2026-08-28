@@ -22,6 +22,7 @@ import {theme} from '../theme/theme';
 import redeemFoodFairTicket from '../api/FoodFairRedeemApi';
 
 const {height} = Dimensions.get('window');
+const FOOD_FAIR_EVENT_ID = 18968;
 
 class ScanBarcode extends Component {
   constructor(props) {
@@ -162,6 +163,10 @@ class ScanBarcode extends Component {
     return redeemFoodFairTicket(url, scannedCode, token);
   };
 
+  isFoodFairEvent = () => {
+    return parseInt(this.state.eid, 10) === FOOD_FAIR_EVENT_ID;
+  };
+
   onBarCodeRead = async event => {
     const scannedCode = event.nativeEvent?.codeStringValue;
     const {scanning, token_storate} = this.state;
@@ -178,39 +183,29 @@ class ScanBarcode extends Component {
       foodFairError: '',
     });
 
-    try {
-      const foodFairResponse = await this.validateFoodFairTicket(scannedCode);
-      const foodFairStatus = String(
-        foodFairResponse?.status || '',
-      ).toLowerCase();
+    if (this.isFoodFairEvent()) {
+      try {
+        const foodFairResponse = await this.validateFoodFairTicket(scannedCode);
 
-      if (this.isHandledFoodFairStatus(foodFairStatus)) {
         this.setState({
           processing: false,
           foodFairResult: foodFairResponse,
         });
         return;
-      }
-
-      if (!this.isFallbackFoodFairStatus(foodFairStatus)) {
+      } catch (error) {
         this.setState({
           processing: false,
-          foodFairResult: foodFairResponse,
+          foodFairError:
+            'Connection error. Ticket status could not be verified.',
         });
+
+        this.showCustomAlert(
+          'Connection Error',
+          'Ticket status could not be verified. Do not issue rice packs yet.',
+          'fail',
+        );
         return;
       }
-    } catch (error) {
-      this.setState({
-        processing: false,
-        foodFairError: 'Connection error. Ticket status could not be verified.',
-      });
-
-      this.showCustomAlert(
-        'Connection Error',
-        'Ticket status could not be verified. Do not issue rice packs yet.',
-        'fail',
-      );
-      return;
     }
 
     try {
