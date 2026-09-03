@@ -1,6 +1,6 @@
 const ensureTrailingSlash = url => {
   if (!url) {
-    return 'https://ticketwave.com.au/';
+    return 'https://staging2.ticketwave.com.au';
   }
 
   return url.endsWith('/') ? url : `${url}/`;
