@@ -66,8 +66,13 @@ const countFoodTypes = packs => {
   return Object.entries(counts);
 };
 
+const getCollectionPoint = result =>
+  String(result?.collection_hub || '').trim();
+
 const FoodFairResult = ({result, onScanNext}) => {
-  if (!result) return null;
+  if (!result) {
+    return null;
+  }
 
   const status = String(result.status || '').toLowerCase();
   const meta = statusMeta[status] || {
@@ -80,6 +85,7 @@ const FoodFairResult = ({result, onScanNext}) => {
   const foodCounts = countFoodTypes(result.packs);
   const showPackDetails = packGroups.length > 0;
   const isAlreadyRedeemed = status === 'already_redeemed';
+  const collectionPoint = getCollectionPoint(result);
 
   return (
     <View style={styles.overlay}>
@@ -89,6 +95,13 @@ const FoodFairResult = ({result, onScanNext}) => {
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={[styles.title, {color: meta.color}]}>{meta.title}</Text>
           <Text style={styles.subtitle}>{meta.subtitle}</Text>
+
+          {!!collectionPoint && (
+            <View style={styles.collectionPointBox}>
+              <Text style={styles.collectionPointLabel}>COLLECTION POINT</Text>
+              <Text style={styles.collectionPointName}>{collectionPoint}</Text>
+            </View>
+          )}
 
           {foodCounts.length > 0 && (
             <View style={styles.giveNowBox}>
@@ -157,7 +170,7 @@ const styles = StyleSheet.create({
   panel: {
     width: '100%',
     maxHeight: '78%',
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#0B1020',
     borderRadius: 16,
     borderWidth: 2,
     overflow: 'hidden',
@@ -198,9 +211,34 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#171C2C',
     borderWidth: 1,
     borderColor: theme.colors.border,
+  },
+
+  collectionPointBox: {
+    marginTop: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#111D38',
+    borderWidth: 1,
+    borderColor: '#2563EB',
+  },
+
+  collectionPointLabel: {
+    color: theme.colors.textMuted,
+    fontSize: RFValue(11),
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+
+  collectionPointName: {
+    marginTop: 5,
+    color: theme.colors.text,
+    fontSize: RFValue(18),
+    fontWeight: '900',
+    textAlign: 'center',
   },
 
   giveNowTitle: {

@@ -12,6 +12,7 @@ import TicketView from './src/screens/TicketView';
 import PdfViewer from './src/screens/PdfViewer';
 import ResetPassword from './src/screens/ResetPassword';
 import SecuritySettingsScreen from './src/screens/SecuritySettingsScreen';
+import FoodFairReport from './src/screens/FoodFairReport';
 const Stack = createNativeStackNavigator();
 
 function App() {
@@ -45,6 +46,11 @@ function App() {
           options={{headerShown: false}}
         />
         <Stack.Screen name="PdfViewer" component={PdfViewer} />
+        <Stack.Screen
+          name="FoodFairReport"
+          component={FoodFairReport}
+          options={{headerShown: false}}
+        />
         <Stack.Screen
           name="ScanBarcode"
           component={ScanBarcode}

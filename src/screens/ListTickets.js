@@ -33,6 +33,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { theme } from '../theme/theme';
 
+const FOOD_FAIR_EVENT_ID = 18968;
+
 class ListTickets extends Component {
   constructor(props) {
     super(props);
@@ -376,6 +378,17 @@ class ListTickets extends Component {
                 </View>
 
                 <View style={styles.pdfButtonWrap}>
+                  {this.state.eid === FOOD_FAIR_EVENT_ID && (
+                    <GradientButton
+                      text="View Food Fair Report"
+                      onPress={() =>
+                        this.props.navigation.navigate('FoodFairReport', {
+                          eid: this.state.eid,
+                          title,
+                        })
+                      }
+                    />
+                  )}
                   <GradientButton
                     text={
                       <View style={styles.pdfContent}>
